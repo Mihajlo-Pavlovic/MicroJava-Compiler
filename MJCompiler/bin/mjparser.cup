@@ -1,0 +1,364 @@
+package rs.ac.bg.etf.pp1;
+
+import java_cup.runtime.*;
+import org.apache.log4j.*;
+
+// import java.io.*;
+import rs.ac.bg.etf.pp1.ast.*;
+
+
+parser code {:
+	
+	boolean errorDetected = false;
+	
+	Logger log = Logger.getLogger(getClass());
+   
+   
+    // slede redefinisani metodi za prijavu gresaka radi izmene teksta poruke
+     
+    public void report_fatal_error(String message, Object info) throws java.lang.Exception {
+      done_parsing();
+      report_error(message, info);
+    }
+  
+    public void syntax_error(Symbol cur_token) {
+        report_error("\nSintaksna greska", cur_token);
+    }
+  
+    public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
+    }
+
+    public void report_error(String message, Object info) {
+    	errorDetected = true;
+    	StringBuilder msg = new StringBuilder(message); 
+    	if (info instanceof Symbol)
+            msg.append (" na liniji ").append(((Symbol)info).left);
+        log.error(msg.toString());
+    }
+    
+    public void report_info(String message, Object info) {
+    	StringBuilder msg = new StringBuilder(message); 
+    	if (info instanceof Symbol)
+            msg.append (" na liniji ").append(((Symbol)info).left);
+        log.info(msg.toString());
+    }
+    
+:}
+
+scan with {:
+	Symbol s = this.getScanner().next_token();
+	if (s != null && s.value != null) 
+		log.info(s.toString() + " " + s.value.toString());
+	return s;
+:}
+
+
+terminal PROG, LBRACE, RBRACE, SEMI, LPAREN, RPAREN, COMMA, PRINT, RETURN, PLUS, EQUAL, VOID;
+terminal MINUS, MUL, DIV, MOD, OR, AND, EXP;
+terminal LSQUARE, RSQUARE;
+terminal Integer NUMCONST;
+terminal Character CHARCONST;
+terminal Boolean BOOLCONST;
+terminal String IDENT;
+terminal IF, ELSE, DO, WHILE, BREAK, CONTINUE, READ;
+terminal EQU, NEQU, GRE, GEA, LES, LEA;
+terminal CONST, CLASS, EXTENDS, DOT, INC, DEC, NEW, RECORD, ELIPSIS;
+
+
+nonterminal MethodDeclList, VarDecl, DeclList, ConstDecl, ConstAssignList, ClassDecl;
+nonterminal VarAssignList, Array, Extend, FormParsOpt, Statements;
+nonterminal FormalParamList, FormalParamDecl, FormPars, ActualPars, ActualParamList; 
+nonterminal Addop, Statement, SingleStatement, StatementList, DesignatorStatement, DesignatorArr;
+nonterminal AddOpTermList, Mulop, Assignop, ActPars, Expop, FormPar;
+nonterminal Program, MethodDecl, ConstAssign, VarAssign, VarDeclList;
+nonterminal Relop, SingelStatement, DesignatorOpt, CondFact, CondTerm, Condition, EnterMethodWArgs;
+nonterminal DoWhileEnd, DoWhileBeggining, IfCondition, RecordDecl, Else, And, Or, VarArgs, LastFormPar, FormParsList;
+
+
+nonterminal rs.etf.pp1.symboltable.concepts.Obj ProgName, MethodTypeName, Designator, RecordName; 
+nonterminal rs.etf.pp1.symboltable.concepts.Struct Type, Expr, Term, Factor, BaseExp;
+
+precedence left ELSE;
+
+Program ::= (Program) PROG ProgName DeclList LBRACE MethodDeclList RBRACE 
+;
+
+ProgName ::= (ProgName) IDENT:name 
+;
+
+DeclList ::= (DeclListConst) DeclList ConstDecl 
+			| 
+			(DeclListVar) DeclList VarDecl
+			|
+			(DeclListClass) DeclList ClassDecl
+			|
+			(DelcListRecord) DeclList RecordDecl
+			|
+			(NoDeclList) 
+			;
+
+
+ConstDecl ::= (ConstDecl) CONST Type ConstAssignList SEMI
+ 			;
+
+ConstAssignList ::= (ConstAssigns) ConstAssignList COMMA ConstAssign
+					|
+					(SingleConstAssign) ConstAssign
+					;
+
+// 3 visit-a za izvedene klase za Tab.insert(Obj.Con, :name, lastVisitedType).setAdr(:value) uz proveru jedinstvenosti imena u scope-u                     
+ConstAssign ::= (ConstAssignNum) IDENT:name EQUAL NUMCONST:value
+				|
+				(ConstAssignChar) IDENT:name EQUAL CHARCONST:value
+				|
+				(ConstAssignBool) IDENT:name EQUAL BOOLCONST:value
+				;
+				
+VarDecl ::= (VarDeclNoErr) Type VarAssignList SEMI
+			|
+			(VarDeclErr) Type error SEMI
+			;
+
+VarAssignList ::= (VarAssigns) VarAssignList COMMA VarAssign
+				  |
+				  (VarAssignsErr) error COMMA VarAssign
+				  |
+				  (SingleVarAssign) VarAssign
+				  ;
+
+// visit za Tab.insert(Obj.Var, :name, type) uz proveru jedinstvenosti imena u scope-u  
+VarAssign ::= (VarAssign) IDENT:name Array // isArray ? type = new Struct(Struct.Array, lastVisitedType) : type = lastVisitedType
+			;
+
+ClassDecl ::= (ClassDeclMethod) CLASS IDENT:name Extend LBRACE VarDeclList LBRACE MethodDeclList RBRACE RBRACE
+			  |
+			  (NoClassDeclMethod) CLASS IDENT:name Extend LBRACE VarDeclList RBRACE	
+			  ;	
+
+RecordDecl ::= (RecordDecl) RECORD RecordName LBRACE VarDeclList RBRACE;
+
+RecordName ::= (RecordName) IDENT:name;
+
+VarDeclList ::= (VarList) VarDeclList VarDecl
+				|
+				(NoVarList)
+				;
+Extend ::= (Extends) EXTENDS Type
+		   |
+		   (NoExtends)
+			;
+Array ::=  (IsArray) LSQUARE RSQUARE
+		   |
+		   (NoArray)
+		   ;
+
+Type ::= (Type) IDENT:typeName 
+		 ;
+
+MethodDeclList ::= (MethodDeclarations) MethodDeclList MethodDecl
+				   |
+				   (NoMethodDecl)
+				   ;
+					
+MethodDecl ::= (MethodDecl) MethodTypeName LPAREN FormParsOpt RPAREN VarDeclList LBRACE StatementList RBRACE
+			   ;
+		   
+MethodTypeName ::= (TypeMethod) Type IDENT:name
+				   |
+				   (VoidMethod) VOID IDENT:name
+				   ;
+
+FormParsList ::= (FormParsListMany) FormPars COMMA LastFormPar
+				|
+				(FormParsListManyErr) error COMMA LastFormPar
+				 |
+				 (FormParsListSingle) LastFormPar
+				 ;
+
+FormPars ::= (MultiFormPars) FormPars COMMA FormPar
+			|
+			(MultiFormParsErr) error COMMA FormPar
+			 |
+			 (SingleFormPars) FormPar
+			 ;
+
+// visit za Tab.insert(Obj.Var, :name, type).setFpPos(Tab.currentScope.getnVars()) uz proveru jedinstvenosti imena u scope-u  
+FormPar ::= (FormPar) Type IDENT:name Array // isArray ? type = new Struct(Struct.Array, lastVisitedType) : type = lastVisitedType
+			;
+
+FormParsOpt ::= (IsFormPars) FormParsList
+				|
+				(IsFormParsErr) error
+				|
+				(NoFormPars)
+				;
+
+LastFormPar ::= (LastFormParVarArgs) VarArgs
+				|
+				(LastFormParFormPar) FormPar;
+				
+VarArgs ::=	(VarArgs) Type ELIPSIS IDENT:name
+			;
+
+			
+Statement ::= (OneSingelStatement) SingelStatement
+			  |
+			  (MultyStatment) Statements
+			  ;
+			  
+Statements ::= (Statements) LBRACE StatementList RBRACE
+		 	   ;	
+
+StatementList ::= (StatementsList) StatementList Statement
+				 |
+				 (NoStatementList)
+				 ;
+
+Designator ::= (DesignatorDot) Designator DOT IDENT:name
+			   |
+			   (DesignatorExpr) DesignatorArr LSQUARE Expr RSQUARE
+			   |
+			   (DesignatorIdent) IDENT:name
+			   ;
+				  
+DesignatorArr ::= (DesignatorArr) Designator;
+			   
+Assignop ::= (Assignop) EQUAL
+			 ;
+			 
+ActPars ::= (ActParsList) ActPars COMMA Expr
+			|
+			(SignleActPars) Expr
+			;
+
+DesignatorStatement ::= (DesignatorStatementAssignop) Designator EQUAL Expr
+						|
+						(DesignatorStatementAssignopErr) Designator EQUAL error
+						|
+						(DesignatorStatementInc) Designator INC
+						|
+						(DesignatorStatementDec) Designator DEC
+						|
+						(DesignatorStatementActPars) Designator LPAREN ActPars RPAREN
+						|
+						(DesignatorStatementEmptyParen) Designator LPAREN RPAREN
+						;
+
+Condition ::= (ConditionList) Condition	Or CondTerm	
+		  	  |
+		  	  (SingelCondition) CondTerm
+		  	  ;
+
+CondTerm ::= (CondTermList) CondTerm And CondFact
+			 |
+			 (SingleCondTerm) CondFact
+			 ;
+
+CondFact ::= (CondFactNoRelOp) Expr // proveriti da li je bool
+			 |
+			 (CondFactRelOp) Expr Relop Expr
+			 ;
+			 
+Or ::= (Or) OR;
+
+And ::= (And) AND;
+
+Relop ::= (Equ) EQU
+		  |
+		  (Nequ) NEQU
+		  |
+		  (Gre) GRE
+		  |
+		  (Gea) GEA
+		  |
+		  (Les) LES
+		  | 
+		  (Lea) LEA
+		  ;
+
+SingelStatement ::= (SingelStatementDesignatorStatement) DesignatorStatement SEMI
+					|
+					(SingelStatementIf)  IfCondition Statement
+					|
+					(SingelStatementIfElse) IfCondition Statement Else Statement
+					|
+					(SingleStatementDoWhile) DoWhileBeggining Statement DoWhileEnd LPAREN Condition RPAREN SEMI
+					|
+					(SingelStatementBreak) BREAK SEMI
+					|
+					(SingelStatementContinur) CONTINUE SEMI
+					|
+					(SingelStatementReturnArg) RETURN Expr SEMI
+					|
+					(SingelStatementRetrunNoArg) RETURN SEMI
+					|
+					(SingelStatementRead) READ LPAREN Designator RPAREN SEMI
+					|
+					(SingelStatementPrintNumConst) PRINT LPAREN Expr COMMA NUMCONST:value RPAREN SEMI
+					|
+					(SingelStatementPrintNoNumConst) PRINT LPAREN Expr RPAREN SEMI
+					;
+					
+IfCondition ::= (IfConditionNoErr) IF LPAREN Condition RPAREN
+				|
+				(IfConditionErr) IF LPAREN error RPAREN
+				;
+
+Else ::= (Else) ELSE;
+					
+DoWhileBeggining ::= (DoWhileBeggining) DO;
+
+DoWhileEnd ::= (DoWhileEnd) WHILE;
+
+Expr ::= (AddOpTermsList) Expr Addop Term // odradjeno
+		  |
+		  (MinusTerm) MINUS Term // analogno kao za AddOpTermsList, samo za jedan operand
+		  |
+		  (SingleTerm) Term // .struct = Term.struct
+		  ;
+
+Term ::= (TermList) Term Mulop Factor // analogno kao za AddOpTermsList
+		 |
+		 (SingleFactor) Factor // .struct = Factor.struct
+		 ;
+
+Factor ::= (FactorList) Factor Expop BaseExp // analogno kao za AddOpTermsList
+		 |
+		 (SingleBaseExp) BaseExp // .struct = BaseExp.struct
+		 ;
+
+BaseExp ::= (BaseExpDesignator) Designator // .struct = Designator.obj.getType()
+		   |
+		   (BaseExpDesignatorActPars) Designator EnterMethodWArgs ActPars RPAREN // za nivo B
+		   |
+		   (BaseExpDesignatorNoActPars) Designator LPAREN RPAREN // za nivo B
+		   |
+		   (BaseExpNum) NUMCONST:value // .struct = Tab.intType
+		   |
+		   (BaseExpChar) CHARCONST:value // .struct = Tab.charType
+		   |
+		   (BaseExpBool) BOOLCONST:value // .struct = boolType
+		   |
+		   (BaseExpNewArr) NEW Type LSQUARE Expr RSQUARE // .struct = new Struct(Struct.Array, lastVisitedType)
+		   |
+		   (BaseExpNewClass) NEW Type // za nivo C
+		   |
+		   (BaseExpExpr) LPAREN Expr RPAREN // .struct = Expr.struct
+		   ;
+EnterMethodWArgs ::= (EnterMethodWArgs)  LPAREN;
+
+Addop ::= (Plus) PLUS
+		  |
+		  (Minus) MINUS
+		  ;
+
+Mulop ::= (Mul) MUL
+          |
+          (Div) DIV
+          |
+          (Mod) MOD
+          ;
+          
+Expop ::= (Expop) EXP
+		  ;

@@ -1,0 +1,406 @@
+package rs.ac.bg.etf.pp1;
+
+import java_cup.runtime.*;
+import org.apache.log4j.*;
+
+// import java.io.*;
+import rs.ac.bg.etf.pp1.ast.*;
+
+
+parser code {:
+	
+	boolean errorDetected = false;
+	
+	Logger log = Logger.getLogger(getClass());
+   
+   
+    // slede redefinisani metodi za prijavu gresaka radi izmene teksta poruke
+     
+    public void report_fatal_error(String message, Object info) throws java.lang.Exception {
+      done_parsing();
+      report_error(message, info);
+    }
+  
+    public void syntax_error(Symbol cur_token) {
+        report_error("\nSintaksna greska", cur_token);
+    }
+  
+    public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
+    }
+
+    public void report_error(String message, Object info) {
+    	errorDetected = true;
+    	StringBuilder msg = new StringBuilder(message); 
+    	if (info instanceof Symbol)
+            msg.append (" na liniji ").append(((Symbol)info).left);
+        log.error(msg.toString());
+    }
+    
+    public void report_info(String message, Object info) {
+    	StringBuilder msg = new StringBuilder(message); 
+    	if (info instanceof Symbol)
+            msg.append (" na liniji ").append(((Symbol)info).left);
+        log.info(msg.toString());
+    }
+    
+:}
+
+scan with {:
+	Symbol s = this.getScanner().next_token();
+	if (s != null && s.value != null) 
+		log.info(s.toString() + " " + s.value.toString());
+	return s;
+:}
+
+
+terminal PROG, LBRACE, RBRACE, SEMI, LPAREN, RPAREN, COMMA, PRINT, RETURN, PLUS, EQUAL, VOID;
+terminal MINUS, MUL, DIV, MOD, OR, AND, EXP;
+terminal LSQUARE, RSQUARE;
+terminal Integer NUMCONST;
+terminal Character CHARCONST;
+terminal Boolean BOOLCONST;
+terminal String IDENT;
+terminal IF, ELSE, DO, WHILE, BREAK, CONTINUE, READ;
+terminal EQU, NEQU, GRE, GEA, LES, LEA;
+terminal CONST, CLASS, EXTENDS, DOT, INC, DEC, NEW, RECORD, ELIPSIS;
+
+
+nonterminal MethodDeclList MethodDeclList;
+nonterminal VarDecl VarDecl;
+nonterminal DeclList DeclList;
+nonterminal ConstDecl ConstDecl;
+nonterminal ConstAssignList ConstAssignList;
+nonterminal ClassDecl ClassDecl;
+nonterminal VarAssignList VarAssignList;
+nonterminal Array Array;
+nonterminal Extend Extend;
+nonterminal FormParsOpt FormParsOpt;
+nonterminal Statements Statements;
+nonterminal FormalParamList FormalParamList;
+nonterminal FormalParamDecl FormalParamDecl;
+nonterminal FormPars FormPars;
+nonterminal ActualPars ActualPars;
+nonterminal ActualParamList ActualParamList; 
+nonterminal Addop Addop;
+nonterminal Statement Statement;
+nonterminal SingleStatement SingleStatement;
+nonterminal StatementList StatementList;
+nonterminal DesignatorStatement DesignatorStatement;
+nonterminal DesignatorArr DesignatorArr;
+nonterminal AddOpTermList AddOpTermList;
+nonterminal Mulop Mulop;
+nonterminal Assignop Assignop;
+nonterminal ActPars ActPars;
+nonterminal Expop Expop;
+nonterminal FormPar FormPar;
+nonterminal Program Program;
+nonterminal MethodDecl MethodDecl;
+nonterminal ConstAssign ConstAssign;
+nonterminal VarAssign VarAssign;
+nonterminal VarDeclList VarDeclList;
+nonterminal Relop Relop;
+nonterminal SingelStatement SingelStatement;
+nonterminal DesignatorOpt DesignatorOpt;
+nonterminal CondFact CondFact;
+nonterminal CondTerm CondTerm;
+nonterminal Condition Condition;
+nonterminal EnterMethodWArgs EnterMethodWArgs;
+nonterminal DoWhileEnd DoWhileEnd;
+nonterminal DoWhileBeggining DoWhileBeggining;
+nonterminal IfCondition IfCondition;
+nonterminal RecordDecl RecordDecl;
+nonterminal Else Else;
+nonterminal And And;
+nonterminal Or Or;
+nonterminal VarArgs VarArgs;
+nonterminal LastFormPar LastFormPar;
+nonterminal FormParsList FormParsList;
+
+
+nonterminal rs.etf.pp1.symboltable.concepts.Obj ProgName, MethodTypeName, Designator, RecordName; 
+nonterminal rs.etf.pp1.symboltable.concepts.Struct Type, Expr, Term, Factor, BaseExp;
+
+precedence left ELSE;
+
+Program ::= (Program) PROG ProgName:P1 DeclList:D2 LBRACE MethodDeclList:M3 RBRACE {: RESULT=new Program(P1, D2, M3); RESULT.setLine(P1left); :} 
+;
+
+ProgName ::= (ProgName) IDENT:name {: RESULT=new ProgName(name); RESULT.setLine(nameleft); :} 
+;
+
+DeclList ::= (DeclListConst) DeclList:D1 ConstDecl:C2 {: RESULT=new DeclListConst(D1, C2); RESULT.setLine(D1left); :} 
+			| 
+			(DeclListVar) DeclList:D1 VarDecl:V2 {: RESULT=new DeclListVar(D1, V2); RESULT.setLine(D1left); :}
+			|
+			(DeclListClass) DeclList:D1 ClassDecl:C2 {: RESULT=new DeclListClass(D1, C2); RESULT.setLine(D1left); :}
+			|
+			(DelcListRecord) DeclList:D1 RecordDecl:R2 {: RESULT=new DelcListRecord(D1, R2); RESULT.setLine(D1left); :}
+			|
+			(NoDeclList) {: RESULT=new NoDeclList(); :} 
+			;
+
+
+ConstDecl ::= (ConstDecl) CONST Type:T1 ConstAssignList:C2 SEMI {: RESULT=new ConstDecl(T1, C2); RESULT.setLine(T1left); :}
+ 			;
+
+ConstAssignList ::= (ConstAssigns) ConstAssignList:C1 COMMA ConstAssign:C2 {: RESULT=new ConstAssigns(C1, C2); RESULT.setLine(C1left); :}
+					|
+					(SingleConstAssign) ConstAssign:C1 {: RESULT=new SingleConstAssign(C1); RESULT.setLine(C1left); :}
+					;
+
+// 3 visit-a za izvedene klase za Tab.insert(Obj.Con, :name, lastVisitedType).setAdr(:value) uz proveru jedinstvenosti imena u scope-u                     
+ConstAssign ::= (ConstAssignNum) IDENT:name EQUAL NUMCONST:value {: RESULT=new ConstAssignNum(name, value); RESULT.setLine(nameleft); :}
+				|
+				(ConstAssignChar) IDENT:name EQUAL CHARCONST:value {: RESULT=new ConstAssignChar(name, value); RESULT.setLine(nameleft); :}
+				|
+				(ConstAssignBool) IDENT:name EQUAL BOOLCONST:value {: RESULT=new ConstAssignBool(name, value); RESULT.setLine(nameleft); :}
+				;
+				
+VarDecl ::= (VarDeclNoErr) Type:T1 VarAssignList:V2 SEMI {: RESULT=new VarDeclNoErr(T1, V2); RESULT.setLine(T1left); :}
+			|
+			(VarDeclErr) Type:T1 error SEMI {: RESULT=new VarDeclErr(T1); RESULT.setLine(T1left); :}
+			;
+
+VarAssignList ::= (VarAssigns) VarAssignList:V1 COMMA VarAssign:V2 {: RESULT=new VarAssigns(V1, V2); RESULT.setLine(V1left); :}
+				  |
+				  (VarAssignsErr) error COMMA VarAssign:V1 {: RESULT=new VarAssignsErr(V1); RESULT.setLine(V1left); :}
+				  |
+				  (SingleVarAssign) VarAssign:V1 {: RESULT=new SingleVarAssign(V1); RESULT.setLine(V1left); :}
+				  ;
+
+// visit za Tab.insert(Obj.Var, :name, type) uz proveru jedinstvenosti imena u scope-u  
+VarAssign ::= (VarAssign) IDENT:name Array:A1 {: RESULT=new VarAssign(name, A1); RESULT.setLine(nameleft); :} // isArray ? type = new Struct(Struct.Array, lastVisitedType) : type = lastVisitedType
+			;
+
+ClassDecl ::= (ClassDeclMethod) CLASS IDENT:name Extend:E1 LBRACE VarDeclList:V2 LBRACE MethodDeclList:M3 RBRACE RBRACE {: RESULT=new ClassDeclMethod(name, E1, V2, M3); RESULT.setLine(nameleft); :}
+			  |
+			  (NoClassDeclMethod) CLASS IDENT:name Extend:E1 LBRACE VarDeclList:V2 RBRACE {: RESULT=new NoClassDeclMethod(name, E1, V2); RESULT.setLine(nameleft); :}	
+			  ;	
+
+RecordDecl ::= (RecordDecl) RECORD RecordName:R1 LBRACE VarDeclList:V2 RBRACE {: RESULT=new RecordDecl(R1, V2); RESULT.setLine(R1left); :};
+
+RecordName ::= (RecordName) IDENT:name {: RESULT=new RecordName(name); RESULT.setLine(nameleft); :};
+
+VarDeclList ::= (VarList) VarDeclList:V1 VarDecl:V2 {: RESULT=new VarList(V1, V2); RESULT.setLine(V1left); :}
+				|
+				(NoVarList) {: RESULT=new NoVarList(); :}
+				;
+Extend ::= (Extends) EXTENDS Type:T1 {: RESULT=new Extends(T1); RESULT.setLine(T1left); :}
+		   |
+		   (NoExtends) {: RESULT=new NoExtends(); :}
+			;
+Array ::=  (IsArray) LSQUARE RSQUARE {: RESULT=new IsArray(); :}
+		   |
+		   (NoArray) {: RESULT=new NoArray(); :}
+		   ;
+
+Type ::= (Type) IDENT:typeName {: RESULT=new Type(typeName); RESULT.setLine(typeNameleft); :} 
+		 ;
+
+MethodDeclList ::= (MethodDeclarations) MethodDeclList:M1 MethodDecl:M2 {: RESULT=new MethodDeclarations(M1, M2); RESULT.setLine(M1left); :}
+				   |
+				   (NoMethodDecl) {: RESULT=new NoMethodDecl(); :}
+				   ;
+					
+MethodDecl ::= (MethodDecl) MethodTypeName:M1 LPAREN FormParsOpt:F2 RPAREN VarDeclList:V3 LBRACE StatementList:S4 RBRACE {: RESULT=new MethodDecl(M1, F2, V3, S4); RESULT.setLine(M1left); :}
+			   ;
+		   
+MethodTypeName ::= (TypeMethod) Type:T1 IDENT:name {: RESULT=new TypeMethod(T1, name); RESULT.setLine(T1left); :}
+				   |
+				   (VoidMethod) VOID IDENT:name {: RESULT=new VoidMethod(name); RESULT.setLine(nameleft); :}
+				   ;
+
+FormParsList ::= (FormParsListMany) FormPars:F1 COMMA LastFormPar:L2 {: RESULT=new FormParsListMany(F1, L2); RESULT.setLine(F1left); :}
+				|
+				(FormParsListManyErr) error COMMA LastFormPar:L1 {: RESULT=new FormParsListManyErr(L1); RESULT.setLine(L1left); :}
+				 |
+				 (FormParsListSingle) LastFormPar:L1 {: RESULT=new FormParsListSingle(L1); RESULT.setLine(L1left); :}
+				 ;
+
+FormPars ::= (MultiFormPars) FormPars:F1 COMMA FormPar:F2 {: RESULT=new MultiFormPars(F1, F2); RESULT.setLine(F1left); :}
+			|
+			(MultiFormParsErr) error COMMA FormPar:F1 {: RESULT=new MultiFormParsErr(F1); RESULT.setLine(F1left); :}
+			 |
+			 (SingleFormPars) FormPar:F1 {: RESULT=new SingleFormPars(F1); RESULT.setLine(F1left); :}
+			 ;
+
+// visit za Tab.insert(Obj.Var, :name, type).setFpPos(Tab.currentScope.getnVars()) uz proveru jedinstvenosti imena u scope-u  
+FormPar ::= (FormPar) Type:T1 IDENT:name Array:A2 {: RESULT=new FormPar(T1, name, A2); RESULT.setLine(T1left); :} // isArray ? type = new Struct(Struct.Array, lastVisitedType) : type = lastVisitedType
+			;
+
+FormParsOpt ::= (IsFormPars) FormParsList:F1 {: RESULT=new IsFormPars(F1); RESULT.setLine(F1left); :}
+				|
+				(IsFormParsErr) error {: RESULT=new IsFormParsErr(); :}
+				|
+				(NoFormPars) {: RESULT=new NoFormPars(); :}
+				;
+
+LastFormPar ::= (LastFormParVarArgs) VarArgs:V1 {: RESULT=new LastFormParVarArgs(V1); RESULT.setLine(V1left); :}
+				|
+				(LastFormParFormPar) FormPar:F1 {: RESULT=new LastFormParFormPar(F1); RESULT.setLine(F1left); :};
+				
+VarArgs ::=	(VarArgs) Type:T1 ELIPSIS IDENT:name {: RESULT=new VarArgs(T1, name); RESULT.setLine(T1left); :}
+			;
+
+			
+Statement ::= (OneSingelStatement) SingelStatement:S1 {: RESULT=new OneSingelStatement(S1); RESULT.setLine(S1left); :}
+			  |
+			  (MultyStatment) Statements:S1 {: RESULT=new MultyStatment(S1); RESULT.setLine(S1left); :}
+			  ;
+			  
+Statements ::= (Statements) LBRACE StatementList:S1 RBRACE {: RESULT=new Statements(S1); RESULT.setLine(S1left); :}
+		 	   ;	
+
+StatementList ::= (StatementsList) StatementList:S1 Statement:S2 {: RESULT=new StatementsList(S1, S2); RESULT.setLine(S1left); :}
+				 |
+				 (NoStatementList) {: RESULT=new NoStatementList(); :}
+				 ;
+
+Designator ::= (DesignatorDot) Designator:D1 DOT IDENT:name {: RESULT=new DesignatorDot(D1, name); RESULT.setLine(D1left); :}
+			   |
+			   (DesignatorExpr) DesignatorArr:D1 LSQUARE Expr:E2 RSQUARE {: RESULT=new DesignatorExpr(D1, E2); RESULT.setLine(D1left); :}
+			   |
+			   (DesignatorIdent) IDENT:name {: RESULT=new DesignatorIdent(name); RESULT.setLine(nameleft); :}
+			   ;
+				  
+DesignatorArr ::= (DesignatorArr) Designator:D1 {: RESULT=new DesignatorArr(D1); RESULT.setLine(D1left); :};
+			   
+Assignop ::= (Assignop) EQUAL {: RESULT=new Assignop(); :}
+			 ;
+			 
+ActPars ::= (ActParsList) ActPars:A1 COMMA Expr:E2 {: RESULT=new ActParsList(A1, E2); RESULT.setLine(A1left); :}
+			|
+			(SignleActPars) Expr:E1 {: RESULT=new SignleActPars(E1); RESULT.setLine(E1left); :}
+			;
+
+DesignatorStatement ::= (DesignatorStatementAssignop) Designator:D1 EQUAL Expr:E2 {: RESULT=new DesignatorStatementAssignop(D1, E2); RESULT.setLine(D1left); :}
+						|
+						(DesignatorStatementAssignopErr) Designator:D1 EQUAL error {: RESULT=new DesignatorStatementAssignopErr(D1); RESULT.setLine(D1left); :}
+						|
+						(DesignatorStatementInc) Designator:D1 INC {: RESULT=new DesignatorStatementInc(D1); RESULT.setLine(D1left); :}
+						|
+						(DesignatorStatementDec) Designator:D1 DEC {: RESULT=new DesignatorStatementDec(D1); RESULT.setLine(D1left); :}
+						|
+						(DesignatorStatementActPars) Designator:D1 LPAREN ActPars:A2 RPAREN {: RESULT=new DesignatorStatementActPars(D1, A2); RESULT.setLine(D1left); :}
+						|
+						(DesignatorStatementEmptyParen) Designator:D1 LPAREN RPAREN {: RESULT=new DesignatorStatementEmptyParen(D1); RESULT.setLine(D1left); :}
+						;
+
+Condition ::= (ConditionList) Condition:C1	Or:O2 CondTerm:C3 {: RESULT=new ConditionList(C1, O2, C3); RESULT.setLine(C1left); :}	
+		  	  |
+		  	  (SingelCondition) CondTerm:C1 {: RESULT=new SingelCondition(C1); RESULT.setLine(C1left); :}
+		  	  ;
+
+CondTerm ::= (CondTermList) CondTerm:C1 And:A2 CondFact:C3 {: RESULT=new CondTermList(C1, A2, C3); RESULT.setLine(C1left); :}
+			 |
+			 (SingleCondTerm) CondFact:C1 {: RESULT=new SingleCondTerm(C1); RESULT.setLine(C1left); :}
+			 ;
+
+CondFact ::= (CondFactNoRelOp) Expr:E1 {: RESULT=new CondFactNoRelOp(E1); RESULT.setLine(E1left); :} // proveriti da li je bool
+			 |
+			 (CondFactRelOp) Expr:E1 Relop:R2 Expr:E3 {: RESULT=new CondFactRelOp(E1, R2, E3); RESULT.setLine(E1left); :}
+			 ;
+			 
+Or ::= (Or) OR {: RESULT=new Or(); :};
+
+And ::= (And) AND {: RESULT=new And(); :};
+
+Relop ::= (Equ) EQU {: RESULT=new Equ(); :}
+		  |
+		  (Nequ) NEQU {: RESULT=new Nequ(); :}
+		  |
+		  (Gre) GRE {: RESULT=new Gre(); :}
+		  |
+		  (Gea) GEA {: RESULT=new Gea(); :}
+		  |
+		  (Les) LES {: RESULT=new Les(); :}
+		  | 
+		  (Lea) LEA {: RESULT=new Lea(); :}
+		  ;
+
+SingelStatement ::= (SingelStatementDesignatorStatement) DesignatorStatement:D1 SEMI {: RESULT=new SingelStatementDesignatorStatement(D1); RESULT.setLine(D1left); :}
+					|
+					(SingelStatementIf)  IfCondition:I1 Statement:S2 {: RESULT=new SingelStatementIf(I1, S2); RESULT.setLine(I1left); :}
+					|
+					(SingelStatementIfElse) IfCondition:I1 Statement:S2 Else:E3 Statement:S4 {: RESULT=new SingelStatementIfElse(I1, S2, E3, S4); RESULT.setLine(I1left); :}
+					|
+					(SingleStatementDoWhile) DoWhileBeggining:D1 Statement:S2 DoWhileEnd:D3 LPAREN Condition:C4 RPAREN SEMI {: RESULT=new SingleStatementDoWhile(D1, S2, D3, C4); RESULT.setLine(D1left); :}
+					|
+					(SingelStatementBreak) BREAK SEMI {: RESULT=new SingelStatementBreak(); :}
+					|
+					(SingelStatementContinur) CONTINUE SEMI {: RESULT=new SingelStatementContinur(); :}
+					|
+					(SingelStatementReturnArg) RETURN Expr:E1 SEMI {: RESULT=new SingelStatementReturnArg(E1); RESULT.setLine(E1left); :}
+					|
+					(SingelStatementRetrunNoArg) RETURN SEMI {: RESULT=new SingelStatementRetrunNoArg(); :}
+					|
+					(SingelStatementRead) READ LPAREN Designator:D1 RPAREN SEMI {: RESULT=new SingelStatementRead(D1); RESULT.setLine(D1left); :}
+					|
+					(SingelStatementPrintNumConst) PRINT LPAREN Expr:E1 COMMA NUMCONST:value RPAREN SEMI {: RESULT=new SingelStatementPrintNumConst(E1, value); RESULT.setLine(E1left); :}
+					|
+					(SingelStatementPrintNoNumConst) PRINT LPAREN Expr:E1 RPAREN SEMI {: RESULT=new SingelStatementPrintNoNumConst(E1); RESULT.setLine(E1left); :}
+					;
+					
+IfCondition ::= (IfConditionNoErr) IF LPAREN Condition:C1 RPAREN {: RESULT=new IfConditionNoErr(C1); RESULT.setLine(C1left); :}
+				|
+				(IfConditionErr) IF LPAREN error RPAREN {: RESULT=new IfConditionErr(); :}
+				;
+
+Else ::= (Else) ELSE {: RESULT=new Else(); :};
+					
+DoWhileBeggining ::= (DoWhileBeggining) DO {: RESULT=new DoWhileBeggining(); :};
+
+DoWhileEnd ::= (DoWhileEnd) WHILE {: RESULT=new DoWhileEnd(); :};
+
+Expr ::= (AddOpTermsList) Expr:E1 Addop:A2 Term:T3 {: RESULT=new AddOpTermsList(E1, A2, T3); RESULT.setLine(E1left); :} // odradjeno
+		  |
+		  (MinusTerm) MINUS Term:T1 {: RESULT=new MinusTerm(T1); RESULT.setLine(T1left); :} // analogno kao za AddOpTermsList, samo za jedan operand
+		  |
+		  (SingleTerm) Term:T1 {: RESULT=new SingleTerm(T1); RESULT.setLine(T1left); :} // .struct = Term.struct
+		  ;
+
+Term ::= (TermList) Term:T1 Mulop:M2 Factor:F3 {: RESULT=new TermList(T1, M2, F3); RESULT.setLine(T1left); :} // analogno kao za AddOpTermsList
+		 |
+		 (SingleFactor) Factor:F1 {: RESULT=new SingleFactor(F1); RESULT.setLine(F1left); :} // .struct = Factor.struct
+		 ;
+
+Factor ::= (FactorList) Factor:F1 Expop:E2 BaseExp:B3 {: RESULT=new FactorList(F1, E2, B3); RESULT.setLine(F1left); :} // analogno kao za AddOpTermsList
+		 |
+		 (SingleBaseExp) BaseExp:B1 {: RESULT=new SingleBaseExp(B1); RESULT.setLine(B1left); :} // .struct = BaseExp.struct
+		 ;
+
+BaseExp ::= (BaseExpDesignator) Designator:D1 {: RESULT=new BaseExpDesignator(D1); RESULT.setLine(D1left); :} // .struct = Designator.obj.getType()
+		   |
+		   (BaseExpDesignatorActPars) Designator:D1 EnterMethodWArgs:E2 ActPars:A3 RPAREN {: RESULT=new BaseExpDesignatorActPars(D1, E2, A3); RESULT.setLine(D1left); :} // za nivo B
+		   |
+		   (BaseExpDesignatorNoActPars) Designator:D1 LPAREN RPAREN {: RESULT=new BaseExpDesignatorNoActPars(D1); RESULT.setLine(D1left); :} // za nivo B
+		   |
+		   (BaseExpNum) NUMCONST:value {: RESULT=new BaseExpNum(value); RESULT.setLine(valueleft); :} // .struct = Tab.intType
+		   |
+		   (BaseExpChar) CHARCONST:value {: RESULT=new BaseExpChar(value); RESULT.setLine(valueleft); :} // .struct = Tab.charType
+		   |
+		   (BaseExpBool) BOOLCONST:value {: RESULT=new BaseExpBool(value); RESULT.setLine(valueleft); :} // .struct = boolType
+		   |
+		   (BaseExpNewArr) NEW Type:T1 LSQUARE Expr:E2 RSQUARE {: RESULT=new BaseExpNewArr(T1, E2); RESULT.setLine(T1left); :} // .struct = new Struct(Struct.Array, lastVisitedType)
+		   |
+		   (BaseExpNewClass) NEW Type:T1 {: RESULT=new BaseExpNewClass(T1); RESULT.setLine(T1left); :} // za nivo C
+		   |
+		   (BaseExpExpr) LPAREN Expr:E1 RPAREN {: RESULT=new BaseExpExpr(E1); RESULT.setLine(E1left); :} // .struct = Expr.struct
+		   ;
+EnterMethodWArgs ::= (EnterMethodWArgs)  LPAREN {: RESULT=new EnterMethodWArgs(); :};
+
+Addop ::= (Plus) PLUS {: RESULT=new Plus(); :}
+		  |
+		  (Minus) MINUS {: RESULT=new Minus(); :}
+		  ;
+
+Mulop ::= (Mul) MUL {: RESULT=new Mul(); :}
+          |
+          (Div) DIV {: RESULT=new Div(); :}
+          |
+          (Mod) MOD {: RESULT=new Mod(); :}
+          ;
+          
+Expop ::= (Expop) EXP {: RESULT=new Expop(); :}
+		  ;
